@@ -52,7 +52,7 @@ def show_ranking(request: Request):
     for ticker in tickers:
         try:
             print("処理中:", ticker)
-            df = yf.download(ticker, period="90d", interval="1d")  # 60日では足りない可能性あり
+            df = yf.download(ticker, period="90d", interval="1d")
             if df.empty:
                 print(f"{ticker}: データなし")
                 continue
@@ -60,14 +60,14 @@ def show_ranking(request: Request):
             df = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
             df = compute_features(df)
 
-            # 欠損列チェック
+            # 欠損チェックを try 内に移動
             missing_cols = df[required_cols].isna().any()
             if missing_cols.any():
                 print(f"{ticker} 欠損列: {missing_cols[missing_cols == True].index.tolist()}")
 
             df = df.dropna(subset=required_cols)
             if df.empty:
-                print(f"{ticker}: 有効データなし（NaNで消去）")
+                print(f"{ticker}: 有効な行がありません")
                 continue
 
             X = df[required_cols].iloc[-1:]
@@ -75,10 +75,9 @@ def show_ranking(request: Request):
             results.append({"ticker": ticker, "probability": round(prob * 100, 2)})
 
         except Exception as e:
-            print(f"エラー（{ticker}）: {e}")
+            print(f"エラー（{ticker}）: {e}")  # ← 本物のPython例外だけ表示
             continue
 
-    # 上位5件を表示
     top5 = sorted(results, key=lambda x: x["probability"], reverse=True)[:5]
     print("予測結果:", top5)
     return templates.TemplateResponse("ranking.html", {"request": request, "ranking": top5})
