@@ -24,32 +24,29 @@ tickers = [
 # 特徴量計算関数（エラー回避込み）
 def compute_features(df):
     df = df.copy()
-    df['ma5'] = df['Close'].rolling(window=5).mean().squeeze()
-    df['ma25'] = df['Close'].rolling(window=25).mean().squeeze()
-   
-    # ma5/ma25 が複数列になっても対応
-    if isinstance(df['ma5'], pd.DataFrame):
-        df['ma5'] = df['ma5'].iloc[:, 0]
-    if isinstance(df['ma25'], pd.DataFrame):
-        df['ma25'] = df['ma25'].iloc[:, 0]
 
-    df['dis_ma5'] = (df['Close'] - df['ma5']) / df['ma5']
-    df['dis_ma25'] = (df['Close'] - df['ma25']) / df['ma25']
-    rolling_std = df['Close'].rolling(window=20).std()
-    df['bb_width'] = (rolling_std * 2) / df['Close']
+    close_series = df['Close'].squeeze()  # ← Seriesとして強制的に取得
+
+    df['ma5'] = close_series.rolling(window=5).mean()
+    df['ma25'] = close_series.rolling(window=25).mean()
+    df['dis_ma5'] = (close_series - df['ma5']) / df['ma5']
+    df['dis_ma25'] = (close_series - df['ma25']) / df['ma25']
+
+    rolling_std = close_series.rolling(window=20).std()
+    df['bb_width'] = (rolling_std * 2) / close_series
+
     df['price_range'] = (df['High'].rolling(window=20).max() - df['Low'].rolling(window=20).min()) / df['Low'].rolling(window=20).min()
     df['vol_ratio'] = df['Volume'].rolling(window=10).mean() / df['Volume'].rolling(window=20).mean()
 
-    if len(df) > 1:
-        X = np.arange(len(df)).reshape(-1, 1)
-        y = df['Close'].values.reshape(-1, 1)
+    if len(close_series) > 1:
+        X = np.arange(len(close_series)).reshape(-1, 1)
+        y = close_series.values.reshape(-1, 1)
         reg = LinearRegression().fit(X, y)
         df['trend_slope'] = reg.coef_[0][0]
     else:
         df['trend_slope'] = np.nan
 
     return df
-
 @app.get("/", response_class=HTMLResponse)
 def show_ranking(request: Request):
     results = []
