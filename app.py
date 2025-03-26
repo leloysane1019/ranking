@@ -47,39 +47,40 @@ def compute_features(df):
 
 @app.get("/", response_class=HTMLResponse)
 def show_ranking(request: Request):
-    results = []
-    required_cols = ['trend_slope', 'dis_ma5', 'dis_ma25', 'bb_width', 'price_range', 'vol_ratio']
+   results = []
+   required_cols = ['trend_slope', 'dis_ma5', 'dis_ma25', 'bb_width', 'price_range', 'vol_ratio']
 
-    for ticker in tickers:
-        try:
-            print("処理中:", ticker)
-            df = yf.download(ticker, period="120d", interval="1d")  # データ期間を延長
-            if df.empty:
-                print(f"{ticker}: データなし")
-                continue
+   for ticker in tickers:
+       try:
+           print("処理中:", ticker)
+           df = yf.download(ticker, period="120d", interval="1d")
+           if df.empty:
+               print(f"{ticker}: データなし")
+               continue
 
-            df = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
-            df = compute_features(df)
+           df = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
+           df = compute_features(df)
 
-            # 欠損列のチェックと表示（改良済み）
-            missing_cols = df[required_cols].isna().any()
-            if missing_cols.any():
-                missing_list = [col for col, is_missing in missing_cols.items() if is_missing]
-                print(f"{ticker} 欠損列: {missing_list}")
+           # 欠損列チェックの安定版（型を厳密に）
+           na_df = df[required_cols].isna()
+           na_summary = na_df.any()
+           if na_summary.any():
+               missing = [col for col in required_cols if na_summary[col]]
+               print(f"{ticker} 欠損列: {missing}")
 
-            df = df.dropna(subset=required_cols)
-            if df.empty:
-                print(f"{ticker}: 有効な行がありません")
-                continue
+           df = df.dropna(subset=required_cols)
+           if df.empty:
+               print(f"{ticker}: 有効な行がありません")
+               continue
 
-            X = df[required_cols].iloc[-1:]
-            prob = model.predict(X)[0]
-            results.append({"ticker": ticker, "probability": round(prob * 100, 2)})
+           X = df[required_cols].iloc[-1:]
+           prob = model.predict(X)[0]
+           results.append({"ticker": ticker, "probability": round(prob * 100, 2)})
 
-        except Exception as e:
-            print(f"エラー（{ticker}）: {e}")
-            continue
+       except Exception as e:
+           print(f"エラー（{ticker}）: {e}")
+           continue
 
-    top5 = sorted(results, key=lambda x: x["probability"], reverse=True)[:5]
-    print("予測結果:", top5)
-    return templates.TemplateResponse("ranking.html", {"request": request, "ranking": top5})
+   top5 = sorted(results, key=lambda x: x["probability"], reverse=True)[:5]
+   print("予測結果:", top5)
+   return templates.TemplateResponse("ranking.html", {"request": request, "ranking": top5})
