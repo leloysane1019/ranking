@@ -24,8 +24,8 @@ tickers = [
 # 特徴量計算関数（エラー回避込み）
 def compute_features(df):
     df = df.copy()
-    df['ma5'] = df['Close'].rolling(window=5).mean()
-    df['ma25'] = df['Close'].rolling(window=25).mean()
+    df['ma5'] = df['Close'].rolling(window=5).mean().squeeze()
+    df['ma25'] = df['Close'].rolling(window=25).mean().squeeze()
    
     # ma5/ma25 が複数列になっても対応
     if isinstance(df['ma5'], pd.DataFrame):
