@@ -13,7 +13,7 @@ templates = Jinja2Templates(directory="templates")
 # モデル読み込み
 model = joblib.load("stock_up_model.pkl")
 
-# 銘柄リスト（ここは自由に増やせます）
+# 銘柄リスト（100件まで拡張可）
 tickers = [
     "7203.T", "6758.T", "9984.T", "8306.T", "8035.T",
     "6861.T", "9432.T", "8766.T", "9020.T", "4502.T",
@@ -21,10 +21,11 @@ tickers = [
     "4452.T", "7974.T", "2502.T", "9433.T", "2413.T"
 ]
 
-# 特徴量生成関数
+# 特徴量を計算する関数
 def compute_features(df):
     df = df.copy()
-    close = df["Close"].squeeze()  # Series化を保証
+    close = df["Close"].squeeze()  # Seriesとして扱う
+
     df["ma5"] = close.rolling(window=5).mean()
     df["ma25"] = close.rolling(window=25).mean()
     df["dis_ma5"] = (close - df["ma5"]) / df["ma5"]
@@ -52,7 +53,7 @@ def show_ranking(request: Request):
     for ticker in tickers:
         try:
             print("処理中:", ticker)
-            df = yf.download(ticker, period="90d", interval="1d")
+            df = yf.download(ticker, period="120d", interval="1d")  # データ期間を延長
             if df.empty:
                 print(f"{ticker}: データなし")
                 continue
@@ -60,10 +61,11 @@ def show_ranking(request: Request):
             df = df[['Open', 'High', 'Low', 'Close', 'Volume']].copy()
             df = compute_features(df)
 
-            # 欠損チェックを try 内に移動
+            # 欠損列のチェックと表示（改良済み）
             missing_cols = df[required_cols].isna().any()
             if missing_cols.any():
-                print(f"{ticker} 欠損列: {missing_cols[missing_cols == True].index.tolist()}")
+                missing_list = [col for col, is_missing in missing_cols.items() if is_missing]
+                print(f"{ticker} 欠損列: {missing_list}")
 
             df = df.dropna(subset=required_cols)
             if df.empty:
@@ -75,7 +77,7 @@ def show_ranking(request: Request):
             results.append({"ticker": ticker, "probability": round(prob * 100, 2)})
 
         except Exception as e:
-            print(f"エラー（{ticker}）: {e}")  # ← 本物のPython例外だけ表示
+            print(f"エラー（{ticker}）: {e}")
             continue
 
     top5 = sorted(results, key=lambda x: x["probability"], reverse=True)[:5]
